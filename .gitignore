@@ -166,3 +166,5 @@ wandb-debug.log
 # data
 results
 code_tmp
+
+*.code-workspace
