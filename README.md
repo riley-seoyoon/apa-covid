@@ -12,7 +12,7 @@ GEO accession: [GSE174668](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GS
 ## Analysis Workflow
 
 ### 1. Quality Control
-[pychopper](https://github.com/epi2me-labs/pychopper)
+[nanopack](https://github.com/wdecoster/nanopack)
 
 ### 2. Alignment
 
