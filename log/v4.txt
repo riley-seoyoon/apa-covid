@@ -1,0 +1,14 @@
+wandb: Currently logged in as: sypark02178. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.15.3
+wandb: Run data is saved locally in /mnt/e/Documents/Remote/lab/APA/wandb/run-20230526_212032-ltm5hlo0
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run charmed-shadow-32
+wandb: ⭐️ View project at https://wandb.ai/sypark02178/apa-lortia
+wandb: 🚀 View run at https://wandb.ai/sypark02178/apa-lortia/runs/ltm5hlo0
+Running minimap2
+[M::mm_idx_gen::7.236*1.72] collected minimizers
+[M::mm_idx_gen::10.001*2.04] sorted minimizers
+[M::main::10.052*2.04] loaded/built the index for 205541 target sequence(s)
+[M::mm_mapopt_update::10.664*1.98] mid_occ = 142
+[M::mm_idx_stat] kmer size: 15; skip: 5; is_hpc: 0; #seq: 205541
+[M::mm_idx_stat::11.030*1.94] distinct minimizers: 30394859 (38.15% are singletons); average occurrences: 4.296; average spacing: 2.959; total length: 386406247
