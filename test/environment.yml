@@ -1,0 +1,23 @@
+name: torch
+
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+
+dependencies:
+  - cudatoolkit-dev=10.1
+  - cxx-compiler=1.0
+  - matplotlib=3.2
+  - networkx=2.4
+  - numba=0.48
+  - pandas=1.0
+  - pip=20.0
+  - pip:
+    - -r file:/mnt/e/Documents/Remote/lab/APA/test/requirements.txt
+  - python=3.7
+  - pytorch=1.4
+  - scikit-image=0.16
+  - scikit-learn=0.22
+  - tensorboard=2.1
+  - torchvision=0.5
