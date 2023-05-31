@@ -2,7 +2,11 @@
 
 from argparse import ArgumentParser
 import pandas as pd
+from alive_progress import alive_bar
+from about_time import about_time
+import logging
 
+log = logging.getLogger(__name__)
 
 def line_end(df, new_df, feature, sign):
     """
@@ -26,19 +30,21 @@ def line_intron(df, new_df, feature):
     """
     Prepares gff line for introns.
     """
-    for index, row in df.iterrows():
-        i = len(new_df)
-        if row["is_qualified"]:    
-            new_df.loc[i] = [row["contig"],
-                             "LoRTIA", 
-                             feature,
-                             row["left"] + 1,
-                             row["right"] - 1,
-                             row["count"],
-                             row["strand"],
-                             ".",
-                             row["consensus"]]
-            i += 1
+    with alive_bar() as bar:
+        for index, row in df.iterrows():
+            i = len(new_df)
+            if row["is_qualified"]:    
+                new_df.loc[i] = [row["contig"],
+                                "LoRTIA", 
+                                feature,
+                                row["left"] + 1,
+                                row["right"] - 1,
+                                row["count"],
+                                row["strand"],
+                                ".",
+                                row["consensus"]]
+                i += 1
+            bar()
 
 def Gff_creator(args):
     """
@@ -94,7 +100,10 @@ def Gff_creator(args):
 
 def main():
     args = parsing()
-    Gff_creator(args)
+    with about_time() as t:
+        Gff_creator(args)
+        print("Total running time for Gff_creator: {}".format(t.duration_human))
+        print("    Elements: {}, Throughput: {}".format(t.count_human, t.throughput))
 
 def parsing():
     parser = ArgumentParser(description="This is the third module of \

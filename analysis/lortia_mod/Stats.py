@@ -7,7 +7,11 @@ from scipy.stats import poisson
 from argparse import ArgumentParser
 from ast import literal_eval
 from Bio import SeqIO
+from alive_progress import alive_bar
+from about_time import about_time
+import logging
 
+log = logging.getLogger(__name__)
 
 ###############################################################################
 ###                           Common functions                              ###
@@ -290,6 +294,7 @@ def intron_seq(df, args, contig):
     Gets exon-intron border sequencences and sends them to the aligner.
     """
     ts = args.shs_for_ts
+    # with alive_bar() as bar:
     for seq_record in SeqIO.parse(args.reference, "fasta"):
         if seq_record.name == contig:
             is_ts_list = []
@@ -311,6 +316,7 @@ def intron_seq(df, args, contig):
                 rseq_list.append(rightseq)
                 l2_list.append(leftseq[ts:ts + 2])
                 r2_list.append(rightseq[ts - 2:ts])
+                    # bar()
     try:
         df["is_potential_ts"] = is_ts_list
         df["leftseq"] = lseq_list
@@ -355,7 +361,10 @@ def contig_introns(df, args, contig):
 
 def main():
     args = parsing()
-    Stats(args)
+    with about_time as t:
+        Stats(args)
+        print("Total running time for Stats: {}".format(t.duration_human))
+        print("    Elements: {}, Throughput: {}".format(t.count_human, t.throughput))
 
 
 def parsing():

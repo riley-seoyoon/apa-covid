@@ -3,6 +3,7 @@ import subprocess
 import glob
 import wandb
 import random
+from .lortia_mod import *
 
 # start a new wandb run to track this script
 wandb.init(
@@ -18,7 +19,7 @@ wandb.init(
         "fa_file": "/mnt/e/Documents/APA/Homo_sapiens.GRCh38.cdna.all.fa",
         "gtf_file": "/mnt/e/Documents/APA/Homo_sapiens.GRCh38.109.gtf",
         "fq_files": "/mnt/e/Documents/APA/fastq/*.fastq",
-        "lortia_path": "/mnt/e/Documents/Remote/lab/APA/LoRTIA/",
+        "lortia_path": "/mnt/e/Documents/Remote/lab/APA/apa-covid/analysis/lortia_mod",
         # ---- Tool commands ----
         "lortia_config": "-5 TGCCATTAGGCCGGG --five_score 16 --check_in_soft 15 -3 AAAAAAAAAAAAAAA --three_score 16 -s poisson -f True",
         "minimap2_config": "-ax splice -Y",

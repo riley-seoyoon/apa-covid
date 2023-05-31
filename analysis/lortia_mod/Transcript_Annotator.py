@@ -4,6 +4,11 @@ import pysam
 import pandas as pd
 from argparse import ArgumentParser
 from ast import literal_eval
+from alive_progress import alive_bar
+from about_time import about_time
+import logging
+
+log = logging.getLogger(__name__)
 
 def read_ends(df, read, end, args, feature):
     """
@@ -70,70 +75,72 @@ def bam_iterator(bam, tr_dict, tss_gff, tes_gff, intron_gff, outbam, args):
     Iterates over reads in a bam file and sets the read tags for each found
     feature.
     """
-    for read in bam:
-        tss_found = False
-        tes_found = False
-        contig = read.reference_name
-        if read.is_reverse:
-            strand = "-"
-            tss = "r5"
-            tss_pos = read.reference_end
-            tes = "l3"
-            tes_pos = read.reference_start + 1
-        else:
-            strand = "+"
-            tss = "l5"
-            tss_pos = read.reference_start + 1
-            tes = "r3"
-            tes_pos = read.reference_end
-        #GET THE TSS
-        if (read.get_tag(tss).split(",")[3] == "correct" 
-            or read.get_tag(tss).split(",")[3] =="potential template switching" 
-            or read.get_tag(tes).split(",")[3] == "out of place"):
-            df = tss_gff.loc[(tss_gff["strand"] == strand)
-                             & (tss_gff["contig"] == contig)
-                             & (tss_gff["start"] >= tss_pos - args.wobble - 1)].copy()
-            read, tss_found = read_ends(df, read, tss_pos, args, "tss")
-        #GET THE TES
-        if (read.get_tag(tes).split(",")[3] == "correct" 
-            or read.get_tag(tes).split(",")[3] =="potential template switching" 
-            or read.get_tag(tes).split(",")[3] == "out of place"):
-            df = tes_gff.loc[(tes_gff["strand"] == strand) 
-                             & (tes_gff["contig"] == contig) 
-                             & (tes_gff["start"] >= tes_pos - args.wobble - 1)].copy()
-            read, tes_found = read_ends(df, read, tes_pos, args, "tes")
-        #GET THE INTRON
-        if read.get_tag("in"):
-            introns = literal_eval(read.get_tag("in"))
-            df = intron_gff.loc[(intron_gff["strand"] == strand)
-                                & (intron_gff["contig"] == contig)
-                                & (intron_gff["start"] > read.reference_start)
-                                & (intron_gff["end"] < read.reference_end)].copy()
-            read, intron_found = read_introns(df, read, introns, args)
-        else:
-            intron_found = False
-        try:
-            if read.get_tag("ga"):
-                gap = True
-        except:
-            gap = False
-        if tss_found and tes_found and not gap:
-            if strand == "+":
-                leftend = read.get_tag("ts")
-                rightend = read.get_tag("te")
+    with alive_bar() as bar:
+        for read in bam:
+            tss_found = False
+            tes_found = False
+            contig = read.reference_name
+            if read.is_reverse:
+                strand = "-"
+                tss = "r5"
+                tss_pos = read.reference_end
+                tes = "l3"
+                tes_pos = read.reference_start + 1
             else:
-                leftend = read.get_tag("ts")
-                rightend = read.get_tag("te")
-            if intron_found:
-                tr = contig, strand, leftend, read.get_tag("in"), rightend
+                strand = "+"
+                tss = "l5"
+                tss_pos = read.reference_start + 1
+                tes = "r3"
+                tes_pos = read.reference_end
+            #GET THE TSS
+            if (read.get_tag(tss).split(",")[3] == "correct" 
+                or read.get_tag(tss).split(",")[3] =="potential template switching" 
+                or read.get_tag(tes).split(",")[3] == "out of place"):
+                df = tss_gff.loc[(tss_gff["strand"] == strand)
+                                & (tss_gff["contig"] == contig)
+                                & (tss_gff["start"] >= tss_pos - args.wobble - 1)].copy()
+                read, tss_found = read_ends(df, read, tss_pos, args, "tss")
+            #GET THE TES
+            if (read.get_tag(tes).split(",")[3] == "correct" 
+                or read.get_tag(tes).split(",")[3] =="potential template switching" 
+                or read.get_tag(tes).split(",")[3] == "out of place"):
+                df = tes_gff.loc[(tes_gff["strand"] == strand) 
+                                & (tes_gff["contig"] == contig) 
+                                & (tes_gff["start"] >= tes_pos - args.wobble - 1)].copy()
+                read, tes_found = read_ends(df, read, tes_pos, args, "tes")
+            #GET THE INTRON
+            if read.get_tag("in"):
+                introns = literal_eval(read.get_tag("in"))
+                df = intron_gff.loc[(intron_gff["strand"] == strand)
+                                    & (intron_gff["contig"] == contig)
+                                    & (intron_gff["start"] > read.reference_start)
+                                    & (intron_gff["end"] < read.reference_end)].copy()
+                read, intron_found = read_introns(df, read, introns, args)
             else:
-                tr = contig, strand, leftend, rightend
-            if tr in tr_dict:
-                tr_dict[tr] += 1
-            else:
-                tr_dict[tr] = 1
-            read.set_tag("tr", str(tr), "Z")
-        outbam.write(read)
+                intron_found = False
+            try:
+                if read.get_tag("ga"):
+                    gap = True
+            except:
+                gap = False
+            if tss_found and tes_found and not gap:
+                if strand == "+":
+                    leftend = read.get_tag("ts")
+                    rightend = read.get_tag("te")
+                else:
+                    leftend = read.get_tag("ts")
+                    rightend = read.get_tag("te")
+                if intron_found:
+                    tr = contig, strand, leftend, read.get_tag("in"), rightend
+                else:
+                    tr = contig, strand, leftend, rightend
+                if tr in tr_dict:
+                    tr_dict[tr] += 1
+                else:
+                    tr_dict[tr] = 1
+                read.set_tag("tr", str(tr), "Z")
+            outbam.write(read)
+            bar()
     bam.close()
     outbam.close()
 
@@ -350,7 +357,10 @@ def annotate_tr(args):
 
 def main():
     args = parsing()
-    annotate_tr(args)
+    with about_time() as t:
+        annotate_tr(args)
+        print("Total running time for Transcript_Annotator: {}".format(t.duration_human))
+        print("    Elements: {}, Throughput: {}".format(t.count_human, t.throughput))
     
 def parsing():
     """

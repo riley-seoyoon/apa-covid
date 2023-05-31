@@ -6,7 +6,7 @@
 ###                And oh boy, the way it handles them...                   ###
 ###############################################################################
 
-from timeit import default_timer as timer
+import numpy as np
 import pysam
 import operator
 import os
@@ -15,17 +15,33 @@ import pandas as pd
 from argparse import ArgumentParser
 from Bio.Seq import Seq
 from Bio import pairwise2
-import sentry_sdk
+from about_time import about_time
+from alive_progress import alive_bar
+import inspect
+import time
+# import wandb
 
-sentry_sdk.init(
-    dsn="https://9a00c067a4414447afd22a700dfc1a8f@o4505271911841792.ingest.sentry.io/4505271944675328",
-
-    # To set a uniform sample rate
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for performance monitoring.
-    # We recommend adjusting this value in production,
-    traces_sample_rate=1.0
-)
+# # start a new wandb run to track this script
+# wandb.init(
+#     # set the wandb project where this run will be logged
+#     project="apa-lortia-sep",
+#     dir="/mnt/e/Documents/Remote/lab/APA",
+#     # track hyperparameters and run metadata
+#     config={
+#         "model": "lortia",
+#         "dataset": "covid-nanopore",
+#         "working_dir": "/mnt/e/Documents/Remote/lab/APA",
+#         "sam_path": "/mnt/e/Documents/Remote/lab/APA/aln",
+#         "fa_file": "/mnt/e/Documents/APA/Homo_sapiens.GRCh38.cdna.all.fa",
+#         "gtf_file": "/mnt/e/Documents/APA/Homo_sapiens.GRCh38.109.gtf",
+#         "fq_files": "/mnt/e/Documents/APA/fastq/*.fastq",
+#         "lortia_path": "/mnt/e/Documents/Remote/lab/APA/LoRTIA/",
+#         # ---- Tool commands ----
+#         "lortia_config": "-5 TGCCATTAGGCCGGG --five_score 16 --check_in_soft 15 -3 AAAAAAAAAAAAAAA --three_score 16 -s poisson -f True",
+#         "minimap2_config": "-ax splice -Y",
+#         "qc_config": "-q 10 -l 500",
+#     },
+# )
 
 ###############################################################################
 ###                               ADAPTERS                                  ###
@@ -45,23 +61,13 @@ def input_sorter(in_file, prefix):
     Calls the pysam sort function on the input.
     """
     print("Sorting {}...".format(in_file))
-    pysam.sort("-n", "-O" "SAM", "-o", "{}_temp.sam".format(prefix), in_file)
+    pysam.sort("-n", "-O", "SAM", "-o", "{}_temp.sam".format(prefix), in_file)
 
-# The code below was meant to run bedtools and get output line-by-line and
-# only write out non0 coverage in order to buy space, but it runs incredibly
-# slowly.
-#
-#def runner(bam, tsv, strand):
-#    cmd = ["genomeCoverageBed", "-ibam {}".format(bam), "-d", "-split {}".format(strand)]
-#    cmd = ["genomeCoverageBed -ibam {} -d -split {}".format(bam, strand)]
-#    btools = Popen(cmd, stdout=PIPE, shell = True)
-#    while True:
-#        line = btools.stdout.readline().decode('utf-8')
-#        if not line:
-#            break
-#        if line[-3:] != "\t0\n":
-#            out_appender(line, tsv)
-#    btools.stdout.close()
+
+import multiprocessing
+from functools import partial
+import subprocess
+import os
 
 def del0s(bam, strand, tsv):
     """
@@ -77,17 +83,32 @@ def del0s(bam, strand, tsv):
     os.remove(tsv)
     os.rename(tsv.replace(".tsv", "_no0.tsv"), tsv)
 
+def parallel_process(function, args_list, n_processes):
+    with multiprocessing.Pool(n_processes) as pool:
+        results = pool.starmap(partial_apply, zip(function, args_list))
+    return results
+
+def partial_apply(func, args):
+    return func(*args)
+
 def coverage_counter(outbam, out_stranded_bam):
     """
-    Calls del0s to create the coverage files.
+    Calls del0s to create the coverage files for all strands, minus strand, and plus strand using multiprocessing.
     """
     print("Counting coverage...")
     alltsv = outbam.replace("sorted.bam", "allcov.tsv")
     mintsv = outbam.replace("sorted.bam", "minuscov.tsv")
     plustsv = outbam.replace("sorted.bam", "pluscov.tsv")
-    del0s(outbam, " > ", alltsv)
-    del0s(out_stranded_bam, " -strand - > ", mintsv)
-    del0s(out_stranded_bam, " -strand + > ", plustsv)
+    
+    functions = [del0s, del0s, del0s]
+    args_list = [
+        (outbam, " > ", alltsv),  # All strands
+        (out_stranded_bam, " -strand - > ", mintsv),  # Minus strand
+        (out_stranded_bam, " -strand + > ", plustsv),  # Plus strand
+    ]
+    n_processes = 3
+    
+    parallel_process(functions, args_list, n_processes)
 
 def output_creator(outsam):
     """
@@ -134,7 +155,7 @@ def get_left_end(read_seq, cigar, args):
         cis = 0
         left_match = 0
     return leftend_seq, cis, left_match
-
+    
 def get_right_end(read_seq, cigar, args):
     """
     Gets the right end of the alignment, taking 'check_in_soft' number of 
@@ -158,7 +179,7 @@ def get_right_end(read_seq, cigar, args):
         cis = 0
         right_match = 0
     return rightend_seq, cis, right_match
-
+    
 ###############################################################################
 ###                             Adapter functions                           ###
 ###############################################################################
@@ -176,7 +197,7 @@ def adapter_aligner(sequence, adapter, args):
     return alignments
     # alignments is a list of alignment tuples, an alignment has five elements:
     # adapter, query, aln_score, aln_start, aln_end
-
+    
 def pos_wo_gap(alignment, p):
     """
     Returns the position in the alignment, substracting the gaps.
@@ -184,7 +205,7 @@ def pos_wo_gap(alignment, p):
     # the alignment end is reported counting the gaps as well, we change that
     pos_wo_gap = alignment[p] - alignment[1][:alignment[p]].count("-")
     return pos_wo_gap
-
+    
 def in_place_checker(alignments,
                      cigar_info,
                      args,
@@ -238,7 +259,7 @@ def in_place_checker(alignments,
                                         "potential template switching")
                         break
     return adapter_info
-
+    
 def get_adapter_info(sequence,
                      adapter,
                      score_limit,
@@ -271,7 +292,7 @@ def get_adapter_info(sequence,
     else:
         adapter_info = (0, 0, 0, "missing")
     return adapter_info
-
+    
 def adapter_checker(read, args):
     """
     Retrieves the end sequences and sorts adapter information for each end.
@@ -575,12 +596,11 @@ def sam_iterator(args):
     list and calls deal_with_same_name to process them
     """
     sam = pysam.AlignmentFile("{}_temp.sam".format(args.prefix), "r")
-    previous_lines = []
-    prog_comment = "@PG	ID:LoRTIA	PN:LoRTIA	VN:0.1	CL:Samprocessor.py {},\
-                    \n".format(args)
+    prog_comment = "@PG	ID:LoRTIA	PN:LoRTIA	VN:0.1	CL:Samprocessor.py {},\n".format(args)
     outsam = pysam.AlignmentFile(args.out_file, "w", template=sam)
     outsam.close()
     out_appender(prog_comment, args.out_file)
+    
     l3_dict = {}
     r3_dict = {}
     l5_dict = {}
@@ -590,57 +610,80 @@ def sam_iterator(args):
     tsr3_dict = {}
     tsl5_dict = {}
     tsr5_dict = {}
+    
     print("Iterating over {}...".format(args.in_file))
-    for read in sam:
-        if not read.is_unmapped:
-            read_start = read.reference_start + 1
-            read_end = read.reference_end
-            read_span = read_end - read_start
-            if (previous_lines and
-                    read.query_name != previous_lines[0][0].query_name):
-                # this makes sure that the previous reads are processed if the
-                # next read does not have the same name
-                (l3_dict,
-                 r3_dict,
-                 l5_dict,
-                 r5_dict,
-                 introns_dict,
-                 tsl3_dict,
-                 tsr3_dict,
-                 tsl5_dict,
-                 tsr5_dict) = deal_with_same_name(previous_lines,
-                                                  args,
-                                                  l3_dict,
-                                                  r3_dict,
-                                                  l5_dict,
-                                                  r5_dict,
-                                                  introns_dict,
-                                                  tsl3_dict,
-                                                  tsr3_dict,
-                                                  tsl5_dict,
-                                                  tsr5_dict)
-                previous_lines = []
-            previous_lines.append((read, read_start, read_end, read_span))
-    (l3_dict,
-     r3_dict,
-     l5_dict,
-     r5_dict,
-     introns_dict,
-     tsl3_dict,
-     tsr3_dict,
-     tsl5_dict,
-     tsr5_dict) = deal_with_same_name(previous_lines,
-                                      args,
-                                      l3_dict,
-                                      r3_dict,
-                                      l5_dict,
-                                      r5_dict,
-                                      introns_dict,
-                                      tsl3_dict,
-                                      tsr3_dict,
-                                      tsl5_dict,
-                                      tsr5_dict)
+    
+    current_name = None
+    current_lines = []
+
+    with alive_bar() as bar:
+        for read in sam:
+            if not read.is_unmapped:
+                read_start = read.reference_start + 1
+                read_end = read.reference_end
+                read_span = read_end - read_start
+                
+                if read.query_name != current_name:
+                    # Process previous lines if a new read name is encountered
+                    if current_lines:
+                        (
+                            l3_dict,
+                            r3_dict,
+                            l5_dict,
+                            r5_dict,
+                            introns_dict,
+                            tsl3_dict,
+                            tsr3_dict,
+                            tsl5_dict,
+                            tsr5_dict,
+                        ) = deal_with_same_name(
+                            current_lines,
+                            args,
+                            l3_dict,
+                            r3_dict,
+                            l5_dict,
+                            r5_dict,
+                            introns_dict,
+                            tsl3_dict,
+                            tsr3_dict,
+                            tsl5_dict,
+                            tsr5_dict,
+                        )
+                    current_lines = []
+                    current_name = read.query_name
+                
+                current_lines.append((read, read_start, read_end, read_span))
+            
+            bar()
+
+    # Process the last set of reads
+    if current_lines:
+        (
+            l3_dict,
+            r3_dict,
+            l5_dict,
+            r5_dict,
+            introns_dict,
+            tsl3_dict,
+            tsr3_dict,
+            tsl5_dict,
+            tsr5_dict,
+        ) = deal_with_same_name(
+            current_lines,
+            args,
+            l3_dict,
+            r3_dict,
+            l5_dict,
+            r5_dict,
+            introns_dict,
+            tsl3_dict,
+            tsr3_dict,
+            tsl5_dict,
+            tsr5_dict,
+        )
+    
     sam.close()
+    
     print("Generating statistics...")
     out_writer(r3_dict, args.prefix, "r3")
     out_writer(l3_dict, args.prefix, "l3")
@@ -652,33 +695,28 @@ def sam_iterator(args):
     out_writer(tsr5_dict, args.prefix, "ts_r5")
     out_writer(introns_dict, args.prefix, "in")
 
-def newTimer(function_name):
-    global t
-    t = timer(10.0, function_name)
+# function_list = [func for _, func in inspect.getmembers(__name__, inspect.isfunction)]
 
 def Samprocessor(args):
     """
     Sets argument types and processes the sam file.
     """
-    if not os.path.isdir(args.out_path):
-        os.mkdir(args.out_path)
-    in_prefix = os.path.basename(args.in_file)
-    args.prefix = "{}/{}".format(args.out_path,
-                                 in_prefix[:len(in_prefix) - 4])
-    args.out_file = "{}_out.sam".format(args.prefix)
+    with about_time() as t1:
+        if not os.path.isdir(args.out_path):
+            os.mkdir(args.out_path)
+        in_prefix = os.path.basename(args.in_file)
+        args.prefix = "{}/{}".format(args.out_path,
+                                    in_prefix[:len(in_prefix) - 4])
+        args.out_file = "{}_out.sam".format(args.prefix)
 
-    t0 = timer()
-    input_sorter(args.in_file, args.prefix)
-    print("Process time for input_sorter: {}".format(t0 - timer()))
-    t1 = timer()
-    sam_iterator(args)
-    print("Process time for sam_iterator: {}".format(t1 - timer()))
-    t2 = timer()
-    output_creator(args.out_file)
-    print("Process time for output_creator: {}".format(t2 - timer()))
+        t2 = about_time(lambda: input_sorter(args.in_file, args.prefix))
+        t3 = about_time(lambda: sam_iterator(args))
+        t4 = about_time(lambda: output_creator(args.out_file))
     print("Processed files saved to {}\n".format(args.out_path))
-    print("Process time for Samprocesser: {}".format(t0 - timer()))
-
+    print("Total running time: {}".format(t1.duration))
+    print("input_sorter running time: {}".format(t2.duration))
+    print("sam_iterator running time: {}".format(t3.duration))
+    print("output_creator running time: {}".format(t4.duration))
 
 ###############################################################################
 ###                             Main function                               ###
@@ -687,7 +725,7 @@ def Samprocessor(args):
 def main():
     args = parsing()
     Samprocessor(args)
-
+    
 def parsing():
     """
     This part handles the commandline arguments
@@ -695,14 +733,20 @@ def parsing():
     parser = ArgumentParser(description="This is the first module of LoRTIA:\
                             a Long-read RNA-Seq Transcript Isofom Annotator")
     parser.add_argument("in_file",
+                        # dest="in_file",
                         help="Input file. Both .sam and .bam files are\
                         accepted.",
-                        metavar="input_file")
+                        metavar="input_file",
+                        # default="/mnt/e/Documents/Remote/lab/APA/LoRTIA/test/test.sam"
+                        )
     parser.add_argument("out_path",
+                        # dest="out_path",
                         help="Output folder. Multiple output files are going\
                         to be created using the input file's prefix (ie. the\
                         part that precedes '.bam' or '.sam')",
-                        metavar="output_path")
+                        metavar="output_path",
+                        # default="./test_results/"
+                        )
     parser.add_argument("--match_score", 
                         dest="match_score",
                         help="The alignment scores for each match when \
@@ -878,4 +922,3 @@ if __name__== "__main__":
 #                      FIRST_EXON:--------------------------------------
 # if an intron starts in this region, the adapter will be classified as
 # 'out of place',
-

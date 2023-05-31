@@ -6,6 +6,7 @@
 ###                And oh boy, the way it handles them...                   ###
 ###############################################################################
 
+import numpy as np
 import pysam
 import operator
 import os
@@ -14,6 +15,32 @@ import pandas as pd
 from argparse import ArgumentParser
 from Bio.Seq import Seq
 from Bio import pairwise2
+from about_time import about_time
+import inspect
+import time
+# import wandb
+
+# # start a new wandb run to track this script
+# wandb.init(
+#     # set the wandb project where this run will be logged
+#     project="apa-lortia-sep",
+#     dir="/mnt/e/Documents/Remote/lab/APA",
+#     # track hyperparameters and run metadata
+#     config={
+#         "model": "lortia",
+#         "dataset": "covid-nanopore",
+#         "working_dir": "/mnt/e/Documents/Remote/lab/APA",
+#         "sam_path": "/mnt/e/Documents/Remote/lab/APA/aln",
+#         "fa_file": "/mnt/e/Documents/APA/Homo_sapiens.GRCh38.cdna.all.fa",
+#         "gtf_file": "/mnt/e/Documents/APA/Homo_sapiens.GRCh38.109.gtf",
+#         "fq_files": "/mnt/e/Documents/APA/fastq/*.fastq",
+#         "lortia_path": "/mnt/e/Documents/Remote/lab/APA/LoRTIA/",
+#         # ---- Tool commands ----
+#         "lortia_config": "-5 TGCCATTAGGCCGGG --five_score 16 --check_in_soft 15 -3 AAAAAAAAAAAAAAA --three_score 16 -s poisson -f True",
+#         "minimap2_config": "-ax splice -Y",
+#         "qc_config": "-q 10 -l 500",
+#     },
+# )
 
 ###############################################################################
 ###                               ADAPTERS                                  ###
@@ -33,49 +60,47 @@ def input_sorter(in_file, prefix):
     Calls the pysam sort function on the input.
     """
     print("Sorting {}...".format(in_file))
-    pysam.sort("-n", "-O" "SAM", "-o", "{}_temp.sam".format(prefix), in_file)
-
-# The code below was meant to run bedtools and get output line-by-line and
-# only write out non0 coverage in order to buy space, but it runs incredibly
-# slowly.
-#
-#def runner(bam, tsv, strand):
-#    cmd = ["genomeCoverageBed", "-ibam {}".format(bam), "-d", "-split {}".format(strand)]
-#    cmd = ["genomeCoverageBed -ibam {} -d -split {}".format(bam, strand)]
-#    btools = Popen(cmd, stdout=PIPE, shell = True)
-#    while True:
-#        line = btools.stdout.readline().decode('utf-8')
-#        if not line:
-#            break
-#        if line[-3:] != "\t0\n":
-#            out_appender(line, tsv)
-#    btools.stdout.close()
+    pysam.sort("-n", "-O", "SAM", "-o", "{}_temp.sam".format(prefix), in_file)
 
 def del0s(bam, strand, tsv):
     """
-    Runs bedtools to create the genome coverage and removes the 0 values.
+    Creates the genome coverage TSV file for the specified strand and removes positions with 0 coverage.
     """
-    cmd = "bedtools genomecov -ibam {} -d -split{}".format(bam, strand + tsv)
-    subprocess.run(cmd, shell=True)
-    with open(tsv.replace(".tsv", "_no0.tsv"), "a") as outfile:
-        with open(tsv) as in_tsv:
-            for line in in_tsv:
-                if line.strip().split("\t")[2] != "0":
-                    outfile.write(line)
-    os.remove(tsv)
-    os.rename(tsv.replace(".tsv", "_no0.tsv"), tsv)
+    coverage = {}
+    with pysam.AlignmentFile(bam, "rb") as bam_file:
+        for read in bam_file:
+            if not read.is_unmapped:
+                tid = bam_file.get_reference_name(read.reference_id)
+                pos = read.reference_start + 1
+                strand_info = "-" if read.is_reverse else "+"
+                
+                # Filter by strand
+                if strand == "" or strand_info == strand:
+                    coverage_key = (tid, pos)
+                    coverage[coverage_key] = coverage.get(coverage_key, 0) + 1
+    
+    sorted_coverage = sorted(coverage.items(), key=lambda x: x[0][0])  # Sort by tid
+    
+    with open(tsv, "w") as tsv_file:
+        for (tid, pos), count in sorted_coverage:
+            tsv_file.write(f"{tid}\t{pos}\t{count}\n")
 
 def coverage_counter(outbam, out_stranded_bam):
     """
-    Calls del0s to create the coverage files.
+    Calls del0s to create the coverage files for all, minus, and plus strands.
     """
     print("Counting coverage...")
     alltsv = outbam.replace("sorted.bam", "allcov.tsv")
     mintsv = outbam.replace("sorted.bam", "minuscov.tsv")
     plustsv = outbam.replace("sorted.bam", "pluscov.tsv")
-    del0s(outbam, " > ", alltsv)
-    del0s(out_stranded_bam, " -strand - > ", mintsv)
-    del0s(out_stranded_bam, " -strand + > ", plustsv)
+    with about_time() as t1:
+        t2 = about_time(lambda: del0s(outbam, "", alltsv))  # All strand
+        t3 = about_time(lambda: del0s(out_stranded_bam, "-", mintsv))  # Minus strand
+        t4 = about_time(lambda: del0s(out_stranded_bam, "+", plustsv))  # Plus strand
+    print(f"Coverage counting took {t1.duration} seconds")
+    print(f"Coverage counting for all strands took {t2.duration} seconds")
+    print(f"Coverage counting for minus strand took {t3.duration} seconds")
+    print(f"Coverage counting for plus strand took {t4.duration} seconds")
 
 def output_creator(outsam):
     """
@@ -122,7 +147,7 @@ def get_left_end(read_seq, cigar, args):
         cis = 0
         left_match = 0
     return leftend_seq, cis, left_match
-
+    
 def get_right_end(read_seq, cigar, args):
     """
     Gets the right end of the alignment, taking 'check_in_soft' number of 
@@ -146,7 +171,7 @@ def get_right_end(read_seq, cigar, args):
         cis = 0
         right_match = 0
     return rightend_seq, cis, right_match
-
+    
 ###############################################################################
 ###                             Adapter functions                           ###
 ###############################################################################
@@ -164,7 +189,7 @@ def adapter_aligner(sequence, adapter, args):
     return alignments
     # alignments is a list of alignment tuples, an alignment has five elements:
     # adapter, query, aln_score, aln_start, aln_end
-
+    
 def pos_wo_gap(alignment, p):
     """
     Returns the position in the alignment, substracting the gaps.
@@ -172,7 +197,7 @@ def pos_wo_gap(alignment, p):
     # the alignment end is reported counting the gaps as well, we change that
     pos_wo_gap = alignment[p] - alignment[1][:alignment[p]].count("-")
     return pos_wo_gap
-
+    
 def in_place_checker(alignments,
                      cigar_info,
                      args,
@@ -226,7 +251,7 @@ def in_place_checker(alignments,
                                         "potential template switching")
                         break
     return adapter_info
-
+    
 def get_adapter_info(sequence,
                      adapter,
                      score_limit,
@@ -259,7 +284,7 @@ def get_adapter_info(sequence,
     else:
         adapter_info = (0, 0, 0, "missing")
     return adapter_info
-
+    
 def adapter_checker(read, args):
     """
     Retrieves the end sequences and sorts adapter information for each end.
@@ -579,7 +604,8 @@ def sam_iterator(args):
     tsl5_dict = {}
     tsr5_dict = {}
     print("Iterating over {}...".format(args.in_file))
-    for read in sam:
+    iter_t = about_time(sam)
+    for read in iter_t:
         if not read.is_unmapped:
             read_start = read.reference_start + 1
             read_end = read.reference_end
@@ -639,22 +665,32 @@ def sam_iterator(args):
     out_writer(tsl5_dict, args.prefix, "ts_l5")
     out_writer(tsr5_dict, args.prefix, "ts_r5")
     out_writer(introns_dict, args.prefix, "in")
+    print(f'The whole block took: {iter_t.duration_human}')
+    print(f'It was detected {iter_t.count_human} elements')
+    print(f'The throughput was: {iter_t.throughput_human}')
+
+# function_list = [func for _, func in inspect.getmembers(__name__, inspect.isfunction)]
 
 def Samprocessor(args):
     """
     Sets argument types and processes the sam file.
     """
-    if not os.path.isdir(args.out_path):
-        os.mkdir(args.out_path)
-    in_prefix = os.path.basename(args.in_file)
-    args.prefix = "{}/{}".format(args.out_path,
-                                 in_prefix[:len(in_prefix) - 4])
-    args.out_file = "{}_out.sam".format(args.prefix)
+    with about_time() as t1:
+        if not os.path.isdir(args.out_path):
+            os.mkdir(args.out_path)
+        in_prefix = os.path.basename(args.in_file)
+        args.prefix = "{}/{}".format(args.out_path,
+                                    in_prefix[:len(in_prefix) - 4])
+        args.out_file = "{}_out.sam".format(args.prefix)
 
-    input_sorter(args.in_file, args.prefix)
-    sam_iterator(args)
-    output_creator(args.out_file)
+        t2 = about_time(lambda: input_sorter(args.in_file, args.prefix))
+        t3 = about_time(lambda: sam_iterator(args))
+        t4 = about_time(lambda: output_creator(args.out_file))
     print("Processed files saved to {}\n".format(args.out_path))
+    print("Total running time: {}".format(t1.duration))
+    print("input_sorter running time: {}".format(t2.duration))
+    print("sam_iterator running time: {}".format(t3.duration))
+    print("output_creator running time: {}".format(t4.duration))
 
 ###############################################################################
 ###                             Main function                               ###
@@ -663,7 +699,7 @@ def Samprocessor(args):
 def main():
     args = parsing()
     Samprocessor(args)
-
+    
 def parsing():
     """
     This part handles the commandline arguments
@@ -671,14 +707,20 @@ def parsing():
     parser = ArgumentParser(description="This is the first module of LoRTIA:\
                             a Long-read RNA-Seq Transcript Isofom Annotator")
     parser.add_argument("in_file",
+                        # dest="in_file",
                         help="Input file. Both .sam and .bam files are\
                         accepted.",
-                        metavar="input_file")
+                        metavar="input_file",
+                        # default="/mnt/e/Documents/Remote/lab/APA/LoRTIA/test/test.sam"
+                        )
     parser.add_argument("out_path",
+                        # dest="out_path",
                         help="Output folder. Multiple output files are going\
                         to be created using the input file's prefix (ie. the\
                         part that precedes '.bam' or '.sam')",
-                        metavar="output_path")
+                        metavar="output_path",
+                        # default="./test_results/"
+                        )
     parser.add_argument("--match_score", 
                         dest="match_score",
                         help="The alignment scores for each match when \
@@ -854,4 +896,3 @@ if __name__== "__main__":
 #                      FIRST_EXON:--------------------------------------
 # if an intron starts in this region, the adapter will be classified as
 # 'out of place',
-

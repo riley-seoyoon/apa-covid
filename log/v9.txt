@@ -414,3 +414,54 @@ Running minimap2
 [M::main] CMD: minimap2 -ax splice -Y /mnt/e/Documents/APA/Homo_sapiens.GRCh38.cdna.all.fa /mnt/e/Documents/Remote/lab/APA/qc/HepG2_S4_3.fq
 [M::main] Real time: 348.296 sec; CPU: 832.244 sec; Peak RSS: 4.376 GB
 Running samtools flagstat
+Sorting /mnt/e/Documents/Remote/lab/APA/aln/A549_HC_1.sam...
+Iterating over /mnt/e/Documents/Remote/lab/APA/aln/A549_HC_1.sam...
+Generating statistics...
+Sorting and indexing output...
+Counting coverage...
+Processed files saved to /mnt/e/Documents/Remote/lab/APA/lortia_results/
+
+Calculating l3 feature statistics...
+Calculating r3 feature statistics...
+Calculating r5 feature statistics...
+Feature file /mnt/e/Documents/Remote/lab/APA/lortia_results//A549_HC_1_r5.tsv is empty. There is nothing to do here.
+Calculating l5 feature statistics...
+Calculating in feature statistics...
+Creating tss gff file...
+Traceback (most recent call last):
+  File "/mnt/e/Documents/Remote/lab/APA/LoRTIA//LoRTIA", line 338, in <module>
+    Gff_creator.Gff_creator(args)
+  File "/mnt/e/Documents/Remote/lab/APA/LoRTIA/Gff_creator.py", line 74, in Gff_creator
+    dfneg = pd.read_csv(fileneg, sep = "\t")
+  File "/home/sypark/miniconda3/envs/apa/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 912, in read_csv
+    return _read(filepath_or_buffer, kwds)
+  File "/home/sypark/miniconda3/envs/apa/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 577, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+  File "/home/sypark/miniconda3/envs/apa/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 1407, in __init__
+    self._engine = self._make_engine(f, self.engine)
+  File "/home/sypark/miniconda3/envs/apa/lib/python3.10/site-packages/pandas/io/parsers/readers.py", line 1661, in _make_engine
+    self.handles = get_handle(
+  File "/home/sypark/miniconda3/envs/apa/lib/python3.10/site-packages/pandas/io/common.py", line 859, in get_handle
+    handle = open(
+FileNotFoundError: [Errno 2] No such file or directory: '/mnt/e/Documents/Remote/lab/APA/lortia_results//A549_HC_1_r5_tss.tsv'
+Terminated
+Terminated
+Terminated
+Terminated
+Terminated
+Sorting /mnt/e/Documents/Remote/lab/APA/aln/A549_S1_3.sam...
+Iterating over /mnt/e/Documents/Remote/lab/APA/aln/A549_S1_3.sam...
+Traceback (most recent call last):
+  File "/mnt/e/Documents/Remote/lab/APA/LoRTIA//LoRTIA", line 309, in <module>
+    Samprocessor.Samprocessor(args)
+  File "/mnt/e/Documents/Remote/lab/APA/LoRTIA/Samprocessor.py", line 655, in Samprocessor
+    sam_iterator(args)
+  File "/mnt/e/Documents/Remote/lab/APA/LoRTIA/Samprocessor.py", line 599, in sam_iterator
+    tsr5_dict) = deal_with_same_name(previous_lines,
+  File "/mnt/e/Documents/Remote/lab/APA/LoRTIA/Samprocessor.py", line 538, in deal_with_same_name
+    tsr5_dict) = prepare_new_sam_line(read,
+  File "/mnt/e/Documents/Remote/lab/APA/LoRTIA/Samprocessor.py", line 491, in prepare_new_sam_line
+    out_appender("".join((readline,"\n")), args.out_file)
+  File "/mnt/e/Documents/Remote/lab/APA/LoRTIA/Samprocessor.py", line 323, in out_appender
+    with open(out_file, "a") as out:
+FileNotFoundError: [Errno 2] No such file or directory: '/mnt/e/Documents/Remote/lab/APA/lortia_results//A549_S1_3_out.sam'

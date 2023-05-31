@@ -169,4 +169,8 @@ code_tmp
 
 *.code-workspace
 
-log
+log/
+toy_data/
+test/
+code_tmp/
+results/
