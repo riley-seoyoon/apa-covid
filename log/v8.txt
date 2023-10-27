@@ -1,7 +1,0 @@
-wandb: Currently logged in as: sypark02178. Use `wandb login --relogin` to force relogin
-wandb: Tracking run with wandb version 0.15.3
-wandb: Run data is saved locally in /mnt/e/Documents/Remote/lab/APA/wandb/run-20230528_102341-ln5o54ll
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run pretty-resonance-40
-wandb: ⭐️ View project at https://wandb.ai/sypark02178/apa-lortia
-wandb: 🚀 View run at https://wandb.ai/sypark02178/apa-lortia/runs/ln5o54ll

@@ -1,67 +1,0 @@
-wandb: Currently logged in as: sypark02178. Use `wandb login --relogin` to force relogin
-wandb: Tracking run with wandb version 0.15.3
-wandb: Run data is saved locally in /mnt/e/Documents/Remote/lab/APA/wandb/run-20230526_200001-f3fqvz7h
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run magic-dust-28
-wandb: ⭐️ View project at https://wandb.ai/sypark02178/apa-lortia
-wandb: 🚀 View run at https://wandb.ai/sypark02178/apa-lortia/runs/f3fqvz7h
-BokehDeprecationWarning: plot_width and plot_height was deprecated in Bokeh 2.4.0 and will be removed, use width or height instead.
-BokehDeprecationWarning: plot_width and plot_height was deprecated in Bokeh 2.4.0 and will be removed, use width or height instead.
-BokehDeprecationWarning: plot_width and plot_height was deprecated in Bokeh 2.4.0 and will be removed, use width or height instead.
-BokehDeprecationWarning: plot_width and plot_height was deprecated in Bokeh 2.4.0 and will be removed, use width or height instead.
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-/bin/sh: 1: echoRunning minimap2: not found
-wandb: Waiting for W&B process to finish... (success).
-wandb: - 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: | 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: \ 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: | 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: / 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: - 0.009 MB of 0.009 MB uploaded (0.000 MB deduped)wandb: 🚀 View run magic-dust-28 at: https://wandb.ai/sypark02178/apa-lortia/runs/f3fqvz7h
-wandb: Synced 7 W&B file(s), 0 media file(s), 3 artifact file(s) and 1 other file(s)
-wandb: Find logs at: /mnt/e/Documents/Remote/lab/APA/wandb/run-20230526_200001-f3fqvz7h/logs
-QC already run for A549_HC_1
-QC already run for A549_HC_2
-QC already run for A549_HC_3
-QC already run for A549_S1_1
-QC already run for A549_S1_2
-QC already run for A549_S1_3
-QC already run for A549_S2_1
-QC already run for A549_S2_2
-QC already run for A549_S2_3
-QC already run for A549_S3_1
-QC already run for A549_S3_2
-QC already run for A549_S3_3
-QC already run for A549_S4_1
-QC already run for A549_S4_2
-QC already run for A549_S4_3
-QC already run for HepG2_HC_1
-QC already run for HepG2_HC_2
-QC already run for HepG2_HC_3
-QC already run for HepG2_S1_1
-QC already run for HepG2_S1_2
-QC already run for HepG2_S1_3
-QC already run for HepG2_S2_1
-QC already run for HepG2_S2_3
-QC already run for HepG2_S3_1
-QC already run for HepG2_S3_2
-QC already run for HepG2_S3_3
